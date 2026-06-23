@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { Product, StoreConfig, AdminSession, Order, CustomField, ProductType, Diet, Category } from '../types';
 import BarcodeScannerModal from './BarcodeScannerModal';
-import { AVAILABLE_FONTS } from '../data/initialData';
+import { AVAILABLE_FONTS, DEFAULT_HERO_LINES, HERO_SIZE_OPTIONS } from '../data/initialData';
 
 interface AdminPortalProps {
   products: Product[];
@@ -114,6 +114,16 @@ export default function AdminPortal({
   const [adminTheme, setAdminTheme] = useState(config.adminTheme);
   const [selectedPreset, setSelectedPreset] = useState<'natura_stone' | 'bento_grid' | 'vibrant_palette'>(config.selectedPreset || 'natura_stone');
   const [isSavedNotify, setIsSavedNotify] = useState(false);
+
+  // Cabecera editable de la vidriera (4 renglones, cada uno con letra y tamaño)
+  const [heroLines, setHeroLines] = useState<{ text: string; font: string; size: string }[]>(
+    (config.heroLines && config.heroLines.length)
+      ? config.heroLines.map(l => ({ text: l.text, font: l.font, size: l.size }))
+      : DEFAULT_HERO_LINES.map(l => ({ ...l }))
+  );
+  const updateHeroLine = (i: number, campo: 'text' | 'font' | 'size', valor: string) => {
+    setHeroLines(prev => prev.map((l, idx) => idx === i ? { ...l, [campo]: valor } : l));
+  };
 
   // Acceso del Admin B (colaborador): usuario + clave que se guardan en la nube
   const [collabForm, setCollabForm] = useState({
@@ -356,6 +366,7 @@ export default function AdminPortal({
       waPrefix: profileForm.waPrefix,
       mapEmbedUrl: profileForm.mapEmbedUrl,
       logo: profileForm.logo,
+      heroLines,
       publicTheme,
       adminTheme,
       selectedPreset
@@ -2080,6 +2091,59 @@ export default function AdminPortal({
                         />
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                {/* Cabecera de la vidriera (Hero) editable */}
+                <div className="bg-slate-50 dark:bg-slate-950/40 p-5 rounded-2xl border border-slate-200/55 space-y-4">
+                  <div>
+                    <h3 className="text-xs uppercase font-extrabold tracking-wider text-slate-500 flex items-center gap-1.5">
+                      <BookOpen className="w-4 h-4 text-emerald-600" /> Cabecera de la Tienda (4 renglones)
+                    </h3>
+                    <p className="text-[11px] text-slate-500 mt-1">Es lo primero que ve el cliente arriba de la tienda. Editá cada renglón con su texto, tipo de letra y tamaño. Dejá un renglón vacío si no lo querés mostrar.</p>
+                  </div>
+                  <div className="space-y-3">
+                    {heroLines.map((ln, i) => (
+                      <div key={i} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 rounded px-1.5 py-0.5 shrink-0">Renglón {i + 1}</span>
+                          <input
+                            type="text"
+                            placeholder={`Texto del renglón ${i + 1}`}
+                            value={ln.text}
+                            onChange={(e) => updateHeroLine(i, 'text', e.target.value)}
+                            className="flex-1 text-xs px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Tipo de letra</label>
+                            <select
+                              value={ln.font}
+                              onChange={(e) => updateHeroLine(i, 'font', e.target.value)}
+                              className="w-full text-xs px-2 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none"
+                            >
+                              {AVAILABLE_FONTS.map(f => (
+                                <option key={f.id} value={f.id}>{f.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Tamaño</label>
+                            <select
+                              value={ln.size}
+                              onChange={(e) => updateHeroLine(i, 'size', e.target.value)}
+                              className="w-full text-xs px-2 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-800 dark:text-slate-100 focus:outline-none"
+                            >
+                              {HERO_SIZE_OPTIONS.map(s => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <p className="text-[10px] text-slate-400 italic">Los cambios se guardan con el botón "Guardar y Aplicar Cambios" de abajo.</p>
                   </div>
                 </div>
 

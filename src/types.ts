@@ -84,9 +84,16 @@ export interface Diet {
   createdAt: string;
 }
 
+export interface HeroLine {
+  text: string;
+  font: string; // id de AVAILABLE_FONTS
+  size: string; // token: xs | sm | base | lg | xl | 2xl | 3xl
+}
+
 export interface StoreConfig {
   name: string;
   logo: string; // Base64 or icon name
+  heroLines?: HeroLine[]; // cabecera editable de la vidriera (hasta 4 renglones)
   address: string;
   phone: string;
   waPrefix?: string; // e.g. "+549" primary country code prefix

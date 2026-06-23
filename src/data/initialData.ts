@@ -166,9 +166,31 @@ export const INITIAL_ORDERS: Order[] = [
   }
 ];
 
+export const DEFAULT_HERO_LINES = [
+  { text: 'ALIMENTACIÓN SALUDABLE • 100% NATURAL', font: 'Inter', size: 'xs' },
+  { text: 'Cuidamos tu Bienestar Diario', font: 'Playfair Display', size: '2xl' },
+  { text: 'Seleccionamos las mejores granolas, semillas premium y harinas para celíacos.', font: 'Inter', size: 'sm' },
+  { text: 'Generá tu código y retirá por nuestra sucursal.', font: 'Inter', size: 'sm' }
+];
+
+export const HERO_SIZE_OPTIONS = [
+  { id: 'xs', name: 'Muy chico' },
+  { id: 'sm', name: 'Chico' },
+  { id: 'base', name: 'Normal' },
+  { id: 'lg', name: 'Grande' },
+  { id: 'xl', name: 'Muy grande' },
+  { id: '2xl', name: 'Enorme' },
+  { id: '3xl', name: 'Gigante' }
+];
+
+export const HERO_SIZE_CSS: Record<string, string> = {
+  xs: '0.78rem', sm: '0.95rem', base: '1.15rem', lg: '1.6rem', xl: '2.1rem', '2xl': '2.9rem', '3xl': '3.6rem'
+};
+
 export const INITIAL_CONFIG: StoreConfig = {
   name: 'Dietética Vida Genuina',
   logo: 'Leaf', // Icon key
+  heroLines: DEFAULT_HERO_LINES,
   address: 'Av. Juan B. Justo 3450, Palermo, CABA, Argentina',
   phone: '+54 9 11 6543-2101',
   waPrefix: '+549',

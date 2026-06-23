@@ -10,9 +10,10 @@ import {
   ChevronRight, Compass, LogIn, Send, CheckCircle, Leaf, Lock, Bell, X, BookOpen, Search, RefreshCw
 } from 'lucide-react';
 import { Product, StoreConfig, AdminSession, Order, OrderItem, Diet, Category } from './types';
-import { 
-  INITIAL_PRODUCTS, INITIAL_ORDERS, INITIAL_CONFIG, 
-  INITIAL_SESSIONS, INITIAL_DIETS, AVAILABLE_FONTS, CATEGORIES 
+import {
+  INITIAL_PRODUCTS, INITIAL_ORDERS, INITIAL_CONFIG,
+  INITIAL_SESSIONS, INITIAL_DIETS, AVAILABLE_FONTS, CATEGORIES,
+  DEFAULT_HERO_LINES, HERO_SIZE_CSS
 } from './data/initialData';
 import QuickViewModal from './components/QuickViewModal';
 import CartModal from './components/CartModal';
@@ -761,18 +762,33 @@ export default function App() {
           {/* Hero Banner / Introduction */}
           <section className="bg-gradient-to-br from-emerald-50/70 via-white to-[#f0f8f0] py-12 px-4 shadow-inner border-b border-emerald-50 preset-bg-section">
             <div className="max-w-4xl mx-auto text-center space-y-4">
-              <span className="bg-emerald-100/70 text-emerald-800 text-[10px] sm:text-xs font-bold px-3 py-1 rounded-full border border-emerald-250 uppercase tracking-widest inline-block preset-badge">
-                ALIMENTACIÓN SALUDABLE • 100% NATURAL
-              </span>
-              <h2 
-                className="text-2xl sm:text-4xl font-extrabold tracking-tight preset-serif-title"
-                style={{ color: config.publicTheme.primaryColor }}
-              >
-                Cuidamos tu Bienestar Diario
-              </h2>
-              <p className="text-sm text-slate-600 max-w-xl mx-auto leading-relaxed">
-                Seleccionamos las mejores granolas, semillas premium y harinas para celíacos. Consigue tus productos preferidos al instante, genera tu código y retira por nuestra sucursal.
-              </p>
+              {(config.heroLines && config.heroLines.length ? config.heroLines : DEFAULT_HERO_LINES).map((ln, i) => {
+                if (!ln || !ln.text) return null;
+                const fontObj = AVAILABLE_FONTS.find(f => f.id === ln.font);
+                const style: React.CSSProperties = {
+                  fontFamily: fontObj ? fontObj.cssValue : undefined,
+                  fontSize: HERO_SIZE_CSS[ln.size] || undefined
+                };
+                if (i === 0) {
+                  return (
+                    <span key={i} className="bg-emerald-100/70 text-emerald-800 font-bold px-3 py-1 rounded-full border border-emerald-250 uppercase tracking-widest inline-block preset-badge" style={style}>
+                      {ln.text}
+                    </span>
+                  );
+                }
+                if (i === 1) {
+                  return (
+                    <h2 key={i} className="font-extrabold tracking-tight preset-serif-title" style={{ ...style, color: config.publicTheme.primaryColor }}>
+                      {ln.text}
+                    </h2>
+                  );
+                }
+                return (
+                  <p key={i} className="text-slate-600 max-w-xl mx-auto leading-relaxed" style={style}>
+                    {ln.text}
+                  </p>
+                );
+              })}
             </div>
           </section>
 
