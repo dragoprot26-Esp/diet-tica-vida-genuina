@@ -193,30 +193,61 @@ export default function AdminPortal({
     } catch (_) {}
   };
 
-  // Helper: File preview simulator (Logo/Image uploader)
-  const handleLogoUploadSim = (e: React.ChangeEvent<HTMLInputElement>, isLogo: boolean) => {
-    const file = e.target.files?.[0];
-    if (file) {
+  // Comprime/achica una imagen antes de guardarla (para que la nube vuele y
+  // las fotos pesadas del celular no rebalsen los datos del local).
+  const comprimirImagen = (file: File, maxLado = 1000, calidad = 0.8): Promise<string> =>
+    new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        if (isLogo) {
-          setProfileForm(prev => ({ ...prev, logo: reader.result as string }));
-        } else {
-          setProductForm(prev => ({ ...prev, image: reader.result as string }));
-        }
+      reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('Imagen inválida'));
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+          if (width > maxLado || height > maxLado) {
+            if (width >= height) { height = Math.round((height * maxLado) / width); width = maxLado; }
+            else { width = Math.round((width * maxLado) / height); height = maxLado; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width; canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { resolve(reader.result as string); return; }
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', calidad));
+        };
+        img.src = reader.result as string;
       };
       reader.readAsDataURL(file);
+    });
+
+  // Subida de imagen (logo o producto) con compresión automática.
+  const handleLogoUploadSim = async (e: React.ChangeEvent<HTMLInputElement>, isLogo: boolean) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 15 * 1024 * 1024) { alert('La imagen es muy pesada (máx 15 MB). Probá con otra.'); return; }
+    try {
+      const dataUrl = await comprimirImagen(file, isLogo ? 400 : 1000, 0.8);
+      if (isLogo) setProfileForm(prev => ({ ...prev, logo: dataUrl }));
+      else setProductForm(prev => ({ ...prev, image: dataUrl }));
+    } catch (err) {
+      alert('No se pudo procesar la imagen. Probá con otra foto.');
+    } finally {
+      e.target.value = ''; // permite re-elegir la misma foto si hace falta
     }
   };
 
-  const handleEditLogoUploadSim = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleEditLogoUploadSim = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && editingProduct) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditingProduct(prev => prev ? { ...prev, image: reader.result as string } : null);
-      };
-      reader.readAsDataURL(file);
+    if (!file || !editingProduct) return;
+    if (file.size > 15 * 1024 * 1024) { alert('La imagen es muy pesada (máx 15 MB). Probá con otra.'); return; }
+    try {
+      const dataUrl = await comprimirImagen(file, 1000, 0.8);
+      setEditingProduct(prev => prev ? { ...prev, image: dataUrl } : null);
+    } catch (err) {
+      alert('No se pudo procesar la imagen. Probá con otra foto.');
+    } finally {
+      e.target.value = '';
     }
   };
 
@@ -531,9 +562,14 @@ export default function AdminPortal({
                 </div>
               )}
               {pendingOrders.length > 0 && (
-                <div className="flex items-center gap-0.5 bg-amber-500/20 text-amber-300 px-2.5 py-0.5 rounded-full border border-amber-500/40 font-mono">
-                  <Clock className="w-3.5 h-3.5 shrink-0" /> Pedidos ({pendingOrders.length})
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('orders')}
+                  title="Tenés pedidos nuevos — tocá para verlos"
+                  className="flex items-center gap-1 bg-emerald-500/25 text-emerald-200 px-2.5 py-0.5 rounded-full border border-emerald-400/50 font-mono animate-bounce cursor-pointer hover:bg-emerald-500/40 transition-colors"
+                >
+                  <Bell className="w-3.5 h-3.5 shrink-0" /> Pedidos nuevos ({pendingOrders.length})
+                </button>
               )}
             </div>
 
@@ -1167,24 +1203,36 @@ export default function AdminPortal({
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Imagen del Producto (URL o subir archivo local)</label>
-                    <div className="flex flex-col sm:flex-row gap-3 items-center">
-                      <input
-                        id="form-product-image"
-                        type="text"
-                        placeholder="Pegar link de Unsplash/Imagen"
-                        className="flex-1 w-full text-xs px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none"
-                        value={productForm.image}
-                        onChange={(e) => setProductForm(prev => ({ ...prev, image: e.target.value }))}
-                      />
-                      <span className="text-xs text-slate-400 font-bold">Ó</span>
-                      <input
-                        id="form-product-upload-file"
-                        type="file"
-                        accept="image/*"
-                        className="text-xs max-w-xs"
-                        onChange={(e) => handleLogoUploadSim(e, false)}
-                      />
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Imagen del Producto</label>
+                    <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                      {productForm.image ? (
+                        <img src={productForm.image} alt="" referrerPolicy="no-referrer" className="w-16 h-16 rounded-lg object-cover border border-slate-200 shrink-0" />
+                      ) : (
+                        <div className="w-16 h-16 rounded-lg bg-slate-100 dark:bg-slate-800 border border-dashed border-slate-300 flex items-center justify-center text-slate-400 text-[10px] text-center shrink-0">Sin foto</div>
+                      )}
+                      <div className="flex-1 w-full space-y-2">
+                        <label
+                          htmlFor="form-product-upload-file"
+                          className="cursor-pointer inline-flex items-center justify-center gap-2 w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-lg transition-colors"
+                        >
+                          📷 Subir imagen (celular o PC)
+                        </label>
+                        <input
+                          id="form-product-upload-file"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleLogoUploadSim(e, false)}
+                        />
+                        <input
+                          id="form-product-image"
+                          type="text"
+                          placeholder="…o pegá un link de imagen (opcional)"
+                          className="w-full text-xs px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none text-slate-800 dark:text-slate-100"
+                          value={productForm.image}
+                          onChange={(e) => setProductForm(prev => ({ ...prev, image: e.target.value }))}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2523,20 +2571,35 @@ export default function AdminPortal({
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-slate-600 mb-1">Imagen URL / Subir archivo</label>
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="text"
-                    className="flex-1 text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg"
-                    value={editingProduct.image}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, image: e.target.value })}
-                  />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="text-[10px] w-40"
-                    onChange={handleEditLogoUploadSim}
-                  />
+                <label className="block text-slate-600 mb-1">Imagen del Producto</label>
+                <div className="flex gap-3 items-center">
+                  {editingProduct.image ? (
+                    <img src={editingProduct.image} alt="" referrerPolicy="no-referrer" className="w-14 h-14 rounded-lg object-cover border border-slate-200 shrink-0" />
+                  ) : (
+                    <div className="w-14 h-14 rounded-lg bg-slate-100 border border-dashed border-slate-300 flex items-center justify-center text-slate-400 text-[10px] text-center shrink-0">Sin foto</div>
+                  )}
+                  <div className="flex-1 space-y-2">
+                    <label
+                      htmlFor="edit-product-upload-file"
+                      className="cursor-pointer inline-flex items-center justify-center gap-2 w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-lg transition-colors"
+                    >
+                      📷 Subir imagen (celular o PC)
+                    </label>
+                    <input
+                      id="edit-product-upload-file"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleEditLogoUploadSim}
+                    />
+                    <input
+                      type="text"
+                      placeholder="…o pegá un link de imagen (opcional)"
+                      className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
+                      value={editingProduct.image}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, image: e.target.value })}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
