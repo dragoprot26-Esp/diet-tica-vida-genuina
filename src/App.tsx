@@ -210,19 +210,43 @@ export default function App() {
     return () => clearTimeout(t);
   }, [products, orders, config, diets, categories, collaborators, isAdminLoggedIn, cloudCode, isPublicView]);
 
-  // ── Campanita: cada 20s traer pedidos nuevos de la nube, así los dos admins
-  //    (dueño y colaborador) ven los encargos sin recargar.
+  // Aviso sonoro + notificación del navegador cuando entra un pedido nuevo.
+  const avisarNuevoPedido = (n: number) => {
+    try {
+      const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (Ctx) {
+        const ctx = new Ctx();
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.connect(g); g.connect(ctx.destination);
+        osc.type = 'sine'; osc.frequency.value = 880; g.gain.value = 0.12;
+        osc.start(); osc.stop(ctx.currentTime + 0.3);
+      }
+    } catch (e) { /* noop */ }
+    try {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('🔔 Nuevo pedido', { body: `Tenés ${n} pedido(s) nuevo(s) en tu tienda.` });
+      }
+    } catch (e) { /* noop */ }
+  };
+
+  // ── Campanita: cada 15s traer pedidos nuevos de la nube, así los dos admins
+  //    (dueño y colaborador) ven los encargos sin recargar, con aviso sonoro.
   useEffect(() => {
     if (!isAdminLoggedIn || !cloudCode || isPublicView) return;
+    if ('Notification' in window && Notification.permission === 'default') {
+      try { Notification.requestPermission(); } catch (e) { /* noop */ }
+    }
     const iv = setInterval(async () => {
       const remote = await cloudLoad(cloudCode);
       if (!remote || !Array.isArray(remote.orders)) return;
       setOrders(prev => {
         const ids = new Set(prev.map(o => o.id));
         const nuevos = (remote.orders as any[]).filter((o: any) => o && o.id && !ids.has(o.id));
+        if (nuevos.length) avisarNuevoPedido(nuevos.length);
         return nuevos.length ? [...nuevos, ...prev] : prev;
       });
-    }, 20000);
+    }, 15000);
     return () => clearInterval(iv);
   }, [isAdminLoggedIn, cloudCode, isPublicView]);
 
@@ -450,7 +474,8 @@ export default function App() {
 
   // Share Page trigger
   const handleSharePage = (method: 'whatsapp' | 'email') => {
-    const text = `¡Hola! Te recomiendo visitar la tienda dietética "${config.name}". Tienen semillas orgánicas, frutos secos, harinas sin gluten y promociones geniales para comer sano. Entrá y hacé tu pedido por la web: ${window.location.href}`;
+    const publicUrl = cloudCode ? `${window.location.origin}/?codigo=${cloudCode}` : window.location.href;
+    const text = `¡Hola! Te recomiendo visitar la tienda dietética "${config.name}". Tienen semillas orgánicas, frutos secos, harinas sin gluten y promociones geniales para comer sano. Entrá y hacé tu pedido por la web: ${publicUrl}`;
     if (method === 'whatsapp') {
       window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     } else {
@@ -637,6 +662,7 @@ export default function App() {
           onUpdateCategories={setCategories}
           collaborators={collaborators}
           onUpdateCollaborators={setCollaborators}
+          publicCode={cloudCode}
         />
       ) : (
         /* ==================== PUBLIC END USER VIEW ==================== */
@@ -773,7 +799,7 @@ export default function App() {
                     placeholder="Buscá granolas, harinas, frutos..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-9 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition-all shadow-xs"
+                    className="w-full pl-10 pr-9 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all shadow-xs"
                   />
                   {searchQuery && (
                     <button

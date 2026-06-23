@@ -8,7 +8,7 @@ import {
   Settings, Package, Percent, Tag, BarChart3, Clock, 
   TrendingUp, LogOut, Check, Trash2, Edit2, ShieldAlert,
   Bell, Smartphone, Download, CheckCircle2, UserCheck, RefreshCw, Eye,
-  X, Send, Printer, Share2, Sparkles, Leaf, BookOpen, Plus, Compass, ChevronRight
+  X, Send, Printer, Share2, Sparkles, Leaf, BookOpen, Plus, Compass, ChevronRight, Search
 } from 'lucide-react';
 import { Product, StoreConfig, AdminSession, Order, CustomField, ProductType, Diet, Category } from '../types';
 import BarcodeScannerModal from './BarcodeScannerModal';
@@ -33,6 +33,7 @@ interface AdminPortalProps {
   onUpdateCategories: (categories: Category[]) => void;
   collaborators: any[];
   onUpdateCollaborators: (collaborators: any[]) => void;
+  publicCode: string;
 }
 
 export default function AdminPortal({
@@ -53,14 +54,20 @@ export default function AdminPortal({
   onUpdateDiets,
   onUpdateCategories,
   collaborators,
-  onUpdateCollaborators
+  onUpdateCollaborators,
+  publicCode
 }: AdminPortalProps) {
+  // URL pública del local: SIEMPRE con ?codigo= para que el cliente cargue ESTE local.
+  const publicUrl = publicCode
+    ? `${window.location.origin}/?codigo=${publicCode}`
+    : window.location.origin;
   // Tabs
   const [activeTab, setActiveTab] = useState<'config' | 'products' | 'promotions' | 'offers' | 'dashboard' | 'orders' | 'stock' | 'diets' | 'categories'>('dashboard');
 
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [newCatEmoji, setNewCatEmoji] = useState('📦');
   const [catProductSearch, setCatProductSearch] = useState('');
+  const [stockSearch, setStockSearch] = useState('');
 
   // Scanner controls
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -498,30 +505,6 @@ export default function AdminPortal({
   return (
     <div id="admin-portal-stage" className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans transition-all">
       
-      {/* Upper Navigation Meta Drawer: Switch simulated terminals */}
-      <div className="bg-amber-100 border-b border-amber-200 py-1.5 px-4 text-center flex flex-wrap gap-2 items-center justify-between text-xs font-semibold text-amber-900">
-        <span className="flex items-center gap-1">
-          <ShieldAlert className="w-4 h-4 text-amber-600" />
-          Simulador Dual-Admin Activo: Prueba apagar la sesión el uno al otro para seguridad total.
-        </span>
-        <div className="flex gap-2">
-          <button 
-            id="switch-admin-a-btn"
-            onClick={() => onSwitchAdmin('admin_a')}
-            className={`px-2.5 py-1 rounded transition-all flex items-center gap-1 ${currentAdmin === 'admin_a' ? 'bg-amber-800 text-white shadow-xs' : 'bg-amber-200/60 hover:bg-amber-200'}`}
-          >
-            Terminal Admin A (Sofía) {currentAdmin === 'admin_a' && '●'}
-          </button>
-          <button 
-            id="switch-admin-b-btn"
-            onClick={() => onSwitchAdmin('admin_b')}
-            className={`px-2.5 py-1 rounded transition-all flex items-center gap-1 ${currentAdmin === 'admin_b' ? 'bg-amber-800 text-white shadow-xs' : 'bg-amber-200/60 hover:bg-amber-200'}`}
-          >
-            Terminal Admin B (Luciano) {currentAdmin === 'admin_b' && '●'}
-          </button>
-        </div>
-      </div>
-
       {/* Main Admin UI Header */}
       <header className="bg-slate-900 text-white sticky top-0 z-20 shadow-md">
         <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
@@ -827,7 +810,7 @@ export default function AdminPortal({
                 <div className="w-36 h-36 bg-white p-3.5 rounded-2xl border border-slate-200 flex items-center justify-center shrink-0 shadow-sm relative group">
                   <img
                     referrerPolicy="no-referrer"
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.origin)}`}
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(publicUrl)}`}
                     alt="Colección QR de la tienda"
                     className="w-full h-full object-contain"
                   />
@@ -837,7 +820,7 @@ export default function AdminPortal({
                 <div className="flex-1 space-y-2 text-center md:text-left">
                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
                     <span className="bg-emerald-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-md uppercase">Difusión Exclusiva</span>
-                    <span className="text-[10px] text-slate-400 font-mono italic truncate max-w-[200px] sm:max-w-xs">{window.location.origin}</span>
+                    <span className="text-[10px] text-slate-400 font-mono italic truncate max-w-[200px] sm:max-w-xs">{publicUrl}</span>
                   </div>
                   <h3 className="text-base font-extrabold text-slate-800 dark:text-white leading-snug">
                     Comparte tu Tienda con tus Clientes
@@ -857,7 +840,7 @@ export default function AdminPortal({
                     <button
                       type="button"
                       onClick={() => {
-                        navigator.clipboard.writeText(window.location.origin);
+                        navigator.clipboard.writeText(publicUrl);
                         alert("¡Enlace de la tienda copiado con éxito! Puedes compartirlo de forma directa con tus clientes.");
                       }}
                       className="bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold px-4 py-2.5 rounded-xl text-xs border border-slate-200 dark:border-slate-800 transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
@@ -1340,6 +1323,16 @@ export default function AdminPortal({
                   <h2 className="text-lg font-bold text-slate-900 dark:text-white">Inventario General de Stock</h2>
                   <p className="text-xs text-slate-500">Listado íntegro de dietética con avisos de stock bajo el mínimo configurado.</p>
                 </div>
+                <div className="relative w-full sm:w-72">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Buscar producto, marca o categoría..."
+                    value={stockSearch}
+                    onChange={(e) => setStockSearch(e.target.value)}
+                    className="w-full text-xs pl-9 pr-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-100 font-semibold focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
               </div>
 
               {/* Dynamic Min stock alert panel */}
@@ -1374,7 +1367,14 @@ export default function AdminPortal({
                 </div>
 
                 <div className="divide-y divide-slate-150">
-                  {products.map(p => (
+                  {products.filter(p => {
+                    const q = stockSearch.trim().toLowerCase();
+                    if (!q) return true;
+                    return (p.name || '').toLowerCase().includes(q)
+                      || (p.brand || '').toLowerCase().includes(q)
+                      || (p.category || '').toLowerCase().includes(q)
+                      || (p.barCode || '').toLowerCase().includes(q);
+                  }).map(p => (
                     <div key={p.id} className="grid grid-cols-5 p-3 items-center hover:bg-slate-50 dark:hover:bg-slate-950/35 transition-colors">
                       <div className="col-span-2 flex items-center gap-2">
                         <img
@@ -2679,7 +2679,7 @@ export default function AdminPortal({
           <div className="p-5 border-4 border-dashed border-emerald-900 rounded-3xl bg-white shadow-sm">
             <img 
               referrerPolicy="no-referrer"
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=350x350&data=${encodeURIComponent(window.location.origin)}`} 
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=350x350&data=${encodeURIComponent(publicUrl)}`}
               alt="QR Code" 
               className="w-56 h-56"
             />
@@ -2796,7 +2796,7 @@ export default function AdminPortal({
                     <div className="p-1 border-2 border-dashed border-emerald-900 rounded-lg">
                       <img 
                         referrerPolicy="no-referrer"
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.origin)}`} 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(publicUrl)}`} 
                         alt="QR Code Mini" 
                         className="w-16 h-16"
                       />
