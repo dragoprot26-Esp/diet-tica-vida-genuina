@@ -1,0 +1,5 @@
+{
+  "name": "Dietética Vida Genuina",
+  "description": "Aplicación web y PWA de gestión inteligente de dietética con catálogo interactivo, carrito de compras integrado, sistema de licencias, portal administrativo, control de stock y sistema de pedidos.",
+  "requestFramePermissions": ["camera"]
+}
