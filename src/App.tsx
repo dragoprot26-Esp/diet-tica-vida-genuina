@@ -21,6 +21,7 @@ import AdminPortal from './components/AdminPortal';
 import DietDetailModal from './components/DietDetailModal';
 import { checkLicense, verifyCollaborator, asegurarCuentaSeguraDueno } from './lib/supabase';
 import { cloudLoad, cloudSave, vidaPublica, vidaAgregarPedido, signOut as cloudSignOut } from './lib/cloud';
+import * as bio from './lib/biometric';
 
 export default function App() {
   // Global States persisted directly in LocalStorage
@@ -139,6 +140,10 @@ export default function App() {
   const [cloudCode, setCloudCode] = useState<string>('');   // código del local para sincronizar
   const [isPublicView, setIsPublicView] = useState(false);  // true si entró un cliente por ?codigo=
   const [selectedLoginRole, setSelectedLoginRole] = useState<'admin' | 'collaborator'>('admin');
+  const [bioAvail, setBioAvail] = useState(false);
+  const [bioOn, setBioOn] = useState(false);
+  const [bioCheck, setBioCheck] = useState(false);
+  useEffect(() => { bio.bioSupported().then(setBioAvail); setBioOn(bio.bioEnabled()); }, []);
   const [isLoginChecking, setIsLoginChecking] = useState(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
 
@@ -344,12 +349,18 @@ export default function App() {
   };
 
   // Admin login handling with license selection + Supabase auth compatibility
-  const handleAdminFormLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAdminFormLogin = async (
+    e: React.FormEvent | null,
+    override?: { codigo: string; usuario: string; password: string; role: 'admin' | 'collaborator' }
+  ) => {
+    if (e) e.preventDefault();
     setLoginError('');
     setIsLoginChecking(true);
 
-    const valLicense = licenseCode.trim().toUpperCase();
+    const valLicense = (override?.codigo ?? licenseCode).trim().toUpperCase();
+    const rol = override?.role ?? selectedLoginRole;
+    const uname = override?.usuario ?? loginForm.username;
+    const pass = override?.password ?? loginForm.password;
 
     // La licencia es obligatoria (sin modo prueba): igual que las demás apps.
     if (!valLicense) {
@@ -380,9 +391,9 @@ export default function App() {
       }));
       localStorage.setItem('diet_license', valLicense);
 
-      if (selectedLoginRole === 'admin') {
-        const adminUser = loginForm.username.trim() || 'Admin';
-        const res = await asegurarCuentaSeguraDueno(adminUser, loginForm.password, valLicense);
+      if (rol === 'admin') {
+        const adminUser = uname.trim() || 'Admin';
+        const res = await asegurarCuentaSeguraDueno(adminUser, pass, valLicense);
         if (!res.ok) {
           setLoginError(res.msg || 'Usuario o contraseña de administrador incorrectos.');
           setIsLoginChecking(false);
@@ -410,8 +421,8 @@ export default function App() {
         setLoginForm({ username: 'admin_a', password: '' });
       } else {
         // Collaborator check
-        const collabUser = loginForm.username.trim();
-        const collab = await verifyCollaborator(valLicense, collabUser, loginForm.password);
+        const collabUser = uname.trim();
+        const collab = await verifyCollaborator(valLicense, collabUser, pass);
         if (!collab) {
           setLoginError('Ingreso de Colaborador incorrecto bajo esta licencia o aún no habilitado.');
           setIsLoginChecking(false);
@@ -439,6 +450,12 @@ export default function App() {
         setLoginForm({ username: 'admin_a', password: '' });
       }
 
+      // Registrar huella en este equipo si el usuario lo tildó (login manual exitoso)
+      if (!override && bioCheck && bioAvail) {
+        try { await bio.bioEnable({ codigo: valLicense, usuario: uname.trim(), password: pass, role: rol }); setBioOn(true); }
+        catch (e) { /* si la huella falla, igual entró */ }
+      }
+
       // Hidratar desde la nube: traer los datos de ESTE local (del dueño/colaborador).
       setCloudCode(valLicense);
       const cd = await cloudLoad(valLicense);
@@ -459,6 +476,16 @@ export default function App() {
     } finally {
       setIsLoginChecking(false);
     }
+  };
+
+  // Ingreso con huella / Face ID: recupera credenciales y reusa el login completo
+  const handleBioLogin = async () => {
+    setLoginError('');
+    let creds;
+    try { creds = await bio.bioLogin(); }
+    catch (e) { setLoginError('Huella cancelada o no disponible en este dispositivo.'); return; }
+    if (!creds) { setLoginError('No se pudo leer la huella. Entrá con tus datos.'); return; }
+    await handleAdminFormLogin(null, creds);
   };
 
   // Contact footer submission
@@ -1340,6 +1367,22 @@ export default function App() {
                 </div>
 
                 <form onSubmit={handleAdminFormLogin} className="space-y-3.5">
+                  {bioAvail && bioOn && (
+                    <div>
+                      <button
+                        type="button"
+                        onClick={handleBioLogin}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-md"
+                      >
+                        🔐 Ingresar con huella / Face ID
+                      </button>
+                      <div className="flex items-center gap-2 my-2">
+                        <span className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
+                        <span className="text-[10px] text-slate-400 uppercase">o con tus datos</span>
+                        <span className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
+                      </div>
+                    </div>
+                  )}
                   {/* Collapsible License Badge */}
                   <div 
                     onClick={() => setIsLicenseInputOpen(!isLicenseInputOpen)}
@@ -1442,6 +1485,18 @@ export default function App() {
                     <p className="text-[10px] text-rose-500 font-bold bg-rose-50 dark:bg-rose-950/25 p-2.5 rounded-xl border border-rose-200/50 dark:border-rose-900/30">
                       {loginError}
                     </p>
+                  )}
+
+                  {bioAvail && !bioOn && (
+                    <label className="flex items-start gap-2 text-[11px] text-slate-500 dark:text-slate-300 bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-200 dark:border-slate-850 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={bioCheck}
+                        onChange={(e) => setBioCheck(e.target.checked)}
+                        className="mt-0.5 w-4 h-4 accent-emerald-600"
+                      />
+                      <span>🔒 <strong>Activar ingreso con huella / Face ID</strong> en este dispositivo, para no volver a tipear las credenciales.</span>
+                    </label>
                   )}
 
                   <div className="pt-2 space-y-2">
