@@ -34,6 +34,8 @@ interface AdminPortalProps {
   collaborators: any[];
   onUpdateCollaborators: (collaborators: any[]) => void;
   publicCode: string;
+  onListBackups?: () => Promise<any[]>;
+  onRestoreBackup?: (id: number) => Promise<boolean>;
 }
 
 export default function AdminPortal({
@@ -55,8 +57,30 @@ export default function AdminPortal({
   onUpdateCategories,
   collaborators,
   onUpdateCollaborators,
-  publicCode
+  publicCode,
+  onListBackups,
+  onRestoreBackup
 }: AdminPortalProps) {
+  // Copias de seguridad (rollback)
+  const [backups, setBackups] = useState<any[]>([]);
+  const [backupsOpen, setBackupsOpen] = useState(false);
+  const [backupsBusy, setBackupsBusy] = useState(false);
+  const cargarBackups = async () => {
+    if (!onListBackups) return;
+    setBackupsBusy(true);
+    try { setBackups(await onListBackups()); setBackupsOpen(true); }
+    finally { setBackupsBusy(false); }
+  };
+  const restaurarBackup = async (id: number) => {
+    if (!onRestoreBackup) return;
+    if (!window.confirm('¿Restaurar esta copia? Se reemplazan los datos actuales por los de esa fecha. (La versión actual queda guardada por las dudas.)')) return;
+    setBackupsBusy(true);
+    try {
+      const ok = await onRestoreBackup(id);
+      alert(ok ? '✅ Copia restaurada. Ya están cargados los datos de esa fecha.' : 'No se pudo restaurar. Probá de nuevo.');
+      if (ok) setBackupsOpen(false);
+    } finally { setBackupsBusy(false); }
+  };
   // URL pública del local: SIEMPRE con ?codigo= para que el cliente cargue ESTE local.
   const publicUrl = publicCode
     ? `${window.location.origin}/?codigo=${publicCode}`
@@ -2734,6 +2758,41 @@ export default function AdminPortal({
               </button>
             </div>
           </form>
+
+              {onListBackups && (
+                <div className="bg-white dark:bg-slate-950/40 p-5 rounded-2xl border border-slate-200/70 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2"><span>🛟</span> Copias de seguridad</h3>
+                      <p className="text-[11px] text-slate-500">Si borrás algo por error, restaurá una versión anterior. Se guardan solas cada vez que hay cambios (se conservan las últimas 10).</p>
+                    </div>
+                    <button type="button" onClick={cargarBackups} disabled={backupsBusy}
+                      className="shrink-0 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg disabled:opacity-60">
+                      {backupsBusy ? 'Cargando…' : (backupsOpen ? 'Actualizar' : 'Ver copias')}
+                    </button>
+                  </div>
+                  {backupsOpen && (
+                    backups.length === 0 ? (
+                      <p className="text-[11px] text-slate-400 italic">Todavía no hay copias guardadas. Se generan automáticamente al guardar cambios.</p>
+                    ) : (
+                      <div className="space-y-2 max-h-72 overflow-auto pr-1">
+                        {backups.map((b: any) => (
+                          <div key={b.id} className="flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200/70 rounded-xl p-3">
+                            <div className="text-xs text-slate-600 dark:text-slate-300">
+                              <span className="font-mono block">{new Date(b.guardado).toLocaleString()}</span>
+                              <span className="text-[10px] text-slate-400 font-mono">{b.productos} productos · {b.pedidos} pedidos · {b.colaboradores} colaboradores</span>
+                            </div>
+                            <button type="button" onClick={() => restaurarBackup(b.id)} disabled={backupsBusy}
+                              className="shrink-0 text-[10px] font-bold px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 border border-emerald-500/30 disabled:opacity-60">
+                              Restaurar
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
         </div>
       )}
 
