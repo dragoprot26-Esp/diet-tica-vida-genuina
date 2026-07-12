@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Settings, Package, Percent, Tag, BarChart3, Clock, 
   TrendingUp, LogOut, Check, Trash2, Edit2, ShieldAlert,
@@ -61,6 +61,15 @@ export default function AdminPortal({
   onListBackups,
   onRestoreBackup
 }: AdminPortalProps) {
+  // Modo oscuro del panel (por clase .dark en el root)
+  const [panelDark, setPanelDark] = useState<boolean>(() => localStorage.getItem('diet_panel_dark') === '1');
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', panelDark);
+    localStorage.setItem('diet_panel_dark', panelDark ? '1' : '0');
+  }, [panelDark]);
+  // Al salir del panel, volver a claro para no afectar la vista pública
+  useEffect(() => () => { document.documentElement.classList.remove('dark'); }, []);
+
   // Copias de seguridad (rollback)
   const [backups, setBackups] = useState<any[]>([]);
   const [backupsOpen, setBackupsOpen] = useState(false);
@@ -607,6 +616,16 @@ export default function AdminPortal({
                 </button>
               )}
             </div>
+
+            {/* Toggle modo oscuro del panel */}
+            <button
+              type="button"
+              onClick={() => setPanelDark(v => !v)}
+              title={panelDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+              className="text-xs text-white hover:bg-slate-700 bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 transition-all flex items-center gap-1.5 shadow-sm font-semibold cursor-pointer"
+            >
+              {panelDark ? '☀️ Claro' : '🌙 Oscuro'}
+            </button>
 
             {/* Ojo para Vista Previa Pública */}
             <button
