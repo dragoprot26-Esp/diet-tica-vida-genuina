@@ -212,3 +212,13 @@ export async function vidaAgregarPedido(codigo: string, pedido: any): Promise<vo
   try { await rpc('vida_agregar_pedido', { p_codigo: codigo, p_pedido: pedido }, false); }
   catch (e) { /* noop */ }
 }
+
+// ── Copias de seguridad / rollback ──────────────────────────────────────
+export async function vidaHistListar(codigo: string): Promise<any[]> {
+  try { const r = await rpc('vida_hist_listar', { p_codigo: codigo }); return Array.isArray(r) ? r : []; }
+  catch (e) { return []; }
+}
+export async function vidaHistRestaurar(codigo: string, id: number): Promise<any | null> {
+  try { const r = await rpc('vida_hist_restaurar', { p_codigo: codigo, p_id: id }); return (r && r.ok) ? r.datos : null; }
+  catch (e) { return null; }
+}
