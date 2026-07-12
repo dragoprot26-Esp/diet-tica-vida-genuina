@@ -20,7 +20,7 @@ import CartModal from './components/CartModal';
 import AdminPortal from './components/AdminPortal';
 import DietDetailModal from './components/DietDetailModal';
 import { checkLicense, verifyCollaborator, asegurarCuentaSeguraDueno } from './lib/supabase';
-import { cloudLoad, cloudSave, vidaPublica, vidaAgregarPedido, signOut as cloudSignOut } from './lib/cloud';
+import { cloudLoad, cloudSave, vidaPublica, vidaAgregarPedido, vidaHistListar, vidaHistRestaurar, signOut as cloudSignOut } from './lib/cloud';
 import * as bio from './lib/biometric';
 
 export default function App() {
@@ -215,6 +215,34 @@ export default function App() {
     }, 1200);
     return () => clearTimeout(t);
   }, [products, orders, config, diets, categories, collaborators, isAdminLoggedIn, cloudCode, isPublicView]);
+
+  // Cerrar sesión con guardado sincrónico (no se pierde ningún cambio reciente).
+  const handleLogout = async () => {
+    if (cloudCode && isAdminLoggedIn) {
+      try { await cloudSave(cloudCode, { config, products, orders, diets, categories, collaborators }); } catch (e) { /* noop */ }
+    }
+    cloudSignOut();
+    setIsAdminLoggedIn(false);
+    setCloudCode('');
+  };
+
+  // Copias de seguridad: listar y restaurar
+  const handleListBackups = async () => {
+    if (!cloudCode) return [];
+    return await vidaHistListar(cloudCode);
+  };
+  const handleRestoreBackup = async (id: number) => {
+    if (!cloudCode) return false;
+    const d = await vidaHistRestaurar(cloudCode, id);
+    if (!d) return false;
+    if (d.config) setConfig(d.config);
+    if (Array.isArray(d.products)) setProducts(d.products);
+    if (Array.isArray(d.orders)) setOrders(d.orders);
+    if (Array.isArray(d.diets)) setDiets(d.diets);
+    if (Array.isArray(d.categories)) setCategories(d.categories);
+    if (Array.isArray(d.collaborators)) setCollaborators(d.collaborators);
+    return true;
+  };
 
   // Aviso sonoro + notificación del navegador cuando entra un pedido nuevo.
   const avisarNuevoPedido = (n: number) => {
@@ -683,7 +711,7 @@ export default function App() {
           onUpdateConfig={setConfig}
           onUpdateSessions={setSessions}
           onSwitchAdmin={setCurrentAdmin}
-          onLogout={() => { cloudSignOut(); setIsAdminLoggedIn(false); setCloudCode(''); }}
+          onLogout={handleLogout}
           onTogglePreview={() => setIsPreviewMode(true)}
           onUpdateDiets={setDiets}
           categories={categories}
@@ -691,6 +719,8 @@ export default function App() {
           collaborators={collaborators}
           onUpdateCollaborators={setCollaborators}
           publicCode={cloudCode}
+          onListBackups={handleListBackups}
+          onRestoreBackup={handleRestoreBackup}
         />
       ) : (
         /* ==================== PUBLIC END USER VIEW ==================== */
