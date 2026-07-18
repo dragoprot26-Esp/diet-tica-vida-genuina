@@ -20,7 +20,7 @@ import CartModal from './components/CartModal';
 import AdminPortal from './components/AdminPortal';
 import DietDetailModal from './components/DietDetailModal';
 import { checkLicense, verifyCollaborator, asegurarCuentaSeguraDueno } from './lib/supabase';
-import { cloudLoad, cloudSave, vidaPublica, vidaAgregarPedido, vidaHistListar, vidaHistRestaurar, signOut as cloudSignOut } from './lib/cloud';
+import { cloudLoad, cloudSave, vidaPublica, vidaAgregarPedido, vidaHistListar, vidaHistRestaurar, vidaVersion, signOut as cloudSignOut } from './lib/cloud';
 import * as bio from './lib/biometric';
 
 export default function App() {
@@ -271,7 +271,11 @@ export default function App() {
     if ('Notification' in window && Notification.permission === 'default') {
       try { Notification.requestPermission(); } catch (e) { /* noop */ }
     }
+    let lastVer = '';
     const iv = setInterval(async () => {
+      const ver = await vidaVersion(cloudCode);
+      if (!ver || ver === lastVer) return; // nada cambió → no baja imágenes
+      lastVer = ver;
       const remote = await cloudLoad(cloudCode);
       if (!remote || !Array.isArray(remote.orders)) return;
       setOrders(prev => {
@@ -280,7 +284,7 @@ export default function App() {
         if (nuevos.length) avisarNuevoPedido(nuevos.length);
         return nuevos.length ? [...nuevos, ...prev] : prev;
       });
-    }, 15000);
+    }, 30000);
     return () => clearInterval(iv);
   }, [isAdminLoggedIn, cloudCode, isPublicView]);
 
