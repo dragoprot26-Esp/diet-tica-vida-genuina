@@ -222,3 +222,8 @@ export async function vidaHistRestaurar(codigo: string, id: number): Promise<any
   try { const r = await rpc('vida_hist_restaurar', { p_codigo: codigo, p_id: id }); return (r && r.ok) ? r.datos : null; }
   catch (e) { return null; }
 }
+
+export async function vidaVersion(codigo: string): Promise<string> {
+  try { const r = await rpc('vida_version', { p_codigo: codigo }, false); return typeof r === 'string' ? r : String(r || ''); }
+  catch (e) { return ''; }
+}
